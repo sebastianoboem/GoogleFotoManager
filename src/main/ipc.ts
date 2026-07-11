@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, session as electronSession, type Session, WebContents } from 'electron'
+import { app, BrowserWindow, ipcMain, session as electronSession, type Session, WebContents } from 'electron'
 import { IPC } from '../shared/ipc-channels'
 import type {
   LogEvent,
@@ -246,6 +246,8 @@ export function registerIpcHandlers(windowRefs: WindowRefs): void {
   })
 
   ipcMain.handle(IPC.PANEL_GET_DEV_MODE, () => ({ enabled: getDevMode() }))
+
+  ipcMain.handle(IPC.PANEL_GET_APP_VERSION, () => app.getVersion())
 
   ipcMain.handle(IPC.PANEL_GET_TUTORIAL_COMPLETED, () => ({
     completed: getTutorialCompleted()

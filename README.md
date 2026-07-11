@@ -10,6 +10,7 @@ App desktop Electron per selezionare automaticamente tutte le foto in [Google Fo
 - **Zoom** — barra nel pannello e Ctrl/Cmd + rotella sulla vista Google Foto (50%–300%)
 - **Tutorial guidato** — overlay al primo avvio, con possibilità di saltarlo o disattivarlo per i prossimi avvii
 - **Dev Mode** — menu **Help → Dev Mode** per mostrare la sezione Log e la finestra log dettagliata
+- **Aggiornamenti automatici** — all'avvio controlla GitHub Releases e, se disponibile, scarica e installa la nuova versione prima di aprire l'app
 
 
 
@@ -36,6 +37,23 @@ npm test
 
 23 test (motore di selezione, selettori, sessioni, zoom, ecc.).
 
+## Aggiornamenti automatici
+
+All'avvio, l'app compilata controlla le [GitHub Releases](https://github.com/sebastianoboem/GoogleFotoManager/releases). Se esiste una versione più recente, la scarica e chiede il riavvio per installarla **prima** di aprire la finestra principale. In sviluppo (`npm run dev`) il controllo è disattivato.
+
+Per pubblicare una release compatibile con l'auto-update, oltre a installer e `.dmg` servono anche i file generati da electron-builder in `release/`:
+
+- `latest-mac.yml` + `.zip` (macOS, uno per architettura)
+- `latest.yml` + `.exe.blockmap` (Windows)
+
+Esempio di build e upload:
+
+```bash
+npm run build && npx electron-builder --mac --win --publish always
+```
+
+(Richiede un token GitHub con permesso `repo`.)
+
 ## Build
 
 ```bash
@@ -55,8 +73,8 @@ Gli artefatti finiscono in `release/`:
 
 | Piattaforma         | File                                               |
 | ------------------- | -------------------------------------------------- |
-| macOS Apple Silicon | `Google Foto Manager-1.0.0-arm64-AppleSilicon.dmg` |
-| macOS Intel         | `Google Foto Manager-1.0.0-x64-Intel.dmg`          |
+| macOS Apple Silicon | `Google Foto Manager-1.0.0-arm64-AppleSilicon.dmg` (+ `.zip` per auto-update) |
+| macOS Intel         | `Google Foto Manager-1.0.0-x64-Intel.dmg` (+ `.zip` per auto-update)          |
 | Windows             | `Google Foto Manager-1.0.0.exe`                    |
 
 

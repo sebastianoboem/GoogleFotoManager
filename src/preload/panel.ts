@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('panelApi', {
     ipcRenderer.invoke(IPC.PANEL_GET_ZOOM),
   getDevMode: (): Promise<{ enabled: boolean }> =>
     ipcRenderer.invoke(IPC.PANEL_GET_DEV_MODE),
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke(IPC.PANEL_GET_APP_VERSION),
   getTutorialCompleted: (): Promise<{ completed: boolean }> =>
     ipcRenderer.invoke(IPC.PANEL_GET_TUTORIAL_COMPLETED),
   setTutorialCompleted: (completed: boolean): Promise<{ completed: boolean }> =>

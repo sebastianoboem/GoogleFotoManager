@@ -1,10 +1,14 @@
 {
   "name": "google-foto-manager",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "App desktop per selezionare automaticamente tutte le foto in Google Foto",
   "main": "./out/main/index.js",
   "author": "sebastianoboem",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sebastianoboem/GoogleFotoManager.git"
+  },
   "scripts": {
     "build:engine": "vite build -c vite.engine.config.ts",
     "dev": "npm run build:engine && electron-vite dev",
@@ -19,6 +23,7 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "puppeteer-core": "^24.8.2"
   },
   "devDependencies": {

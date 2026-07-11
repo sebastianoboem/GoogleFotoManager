@@ -30,6 +30,7 @@ declare global {
       deleteProfile: (profileId: string) => Promise<{ ok: boolean; message?: string }>
       getZoom: () => Promise<{ factor: number; percent: number }>
       getDevMode: () => Promise<{ enabled: boolean }>
+      getAppVersion: () => Promise<string>
       getTutorialCompleted: () => Promise<{ completed: boolean }>
       setTutorialCompleted: (completed: boolean) => Promise<{ completed: boolean }>
       tutorialShow: () => void
@@ -56,6 +57,7 @@ const btnDelete = document.getElementById('btn-delete') as HTMLButtonElement
 const btnPause = document.getElementById('btn-pause') as HTMLButtonElement
 const btnLog = document.getElementById('btn-log') as HTMLButtonElement
 const btnChromeLogin = document.getElementById('btn-chrome-login') as HTMLButtonElement
+const appVersionEl = document.getElementById('app-version') as HTMLParagraphElement
 const btnReset = document.getElementById('btn-reset') as HTMLButtonElement
 const btnRediagnose = document.getElementById('btn-rediagnose') as HTMLButtonElement
 const btnSaveProfile = document.getElementById('btn-save-profile') as HTMLButtonElement
@@ -514,6 +516,8 @@ async function init(): Promise<void> {
 
   try {
     const settings = await window.panelApi.getSettings()
+    const version = await window.panelApi.getAppVersion()
+    appVersionEl.textContent = `v${version}`
     fillForm(settings)
     await refreshProfiles()
     await refreshZoomLabel()

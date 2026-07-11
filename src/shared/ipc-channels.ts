@@ -41,6 +41,7 @@ export const IPC = {
   PANEL_PAGE_STATUS: 'panel:page-status',
   PANEL_ZOOM_CHANGED: 'panel:zoom-changed',
   PANEL_GET_DEV_MODE: 'panel:get-dev-mode',
+  PANEL_GET_APP_VERSION: 'panel:get-app-version',
   PANEL_DEV_MODE_CHANGED: 'panel:dev-mode-changed',
   PANEL_GET_TUTORIAL_COMPLETED: 'panel:get-tutorial-completed',
   PANEL_SET_TUTORIAL_COMPLETED: 'panel:set-tutorial-completed',

@@ -30,6 +30,7 @@ import {
   setDevModeChangeHandler,
   updateDevModeMenuItem
 } from './menu'
+import { runStartupUpdateCheck } from './auto-updater'
 
 const PANEL_WIDTH = 320
 const PHOTOS_URL = 'https://photos.google.com/'
@@ -190,7 +191,7 @@ function createMainWindow(): void {
   baseWindow = new BaseWindow({
     width: 1280,
     height: 800,
-    title: 'Google Foto Manager',
+    title: `Google Foto Manager v${app.getVersion()}`,
     show: false
   })
 
@@ -257,7 +258,9 @@ function createMainWindow(): void {
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled')
 applyCleanUserAgent(app)
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await runStartupUpdateCheck()
+
   setDevModeChangeHandler((enabled) => {
     updateDevModeMenuItem(enabled)
     notifyDevModeChanged(enabled)
