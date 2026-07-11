@@ -8,10 +8,13 @@ const MAC_RENAMES = new Map([
   ['-x64.dmg.blockmap', '-x64-Intel.dmg.blockmap']
 ])
 
-function copyHyphenatedWindowsArtifacts(filePath, updated) {
-  if (!filePath.endsWith('.exe') || filePath.includes('.__uninstaller.')) return
+function copyHyphenatedArtifact(filePath, updated) {
+  if (filePath.includes('.__uninstaller.')) return
 
-  const hyphenName = path.basename(filePath).replace(/ /g, '-')
+  const base = path.basename(filePath)
+  const hyphenName = base.replace(/ /g, '-')
+  if (hyphenName === base) return
+
   const dest = path.join(path.dirname(filePath), hyphenName)
   if (fs.existsSync(dest)) return
 
@@ -49,7 +52,7 @@ module.exports = async function renameArtifacts(buildResult) {
       continue
     }
 
-    copyHyphenatedWindowsArtifacts(current, updated)
+    copyHyphenatedArtifact(current, updated)
     updated.push(current)
   }
 
