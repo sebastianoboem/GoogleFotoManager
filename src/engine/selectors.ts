@@ -27,13 +27,25 @@ export const DELETE_TOOLBAR_LABELS = [
   'Sposta nel cestino del dispositivo'
 ] as const
 
+export const DELETE_SUBMENU_LABELS = [
+  'Sposta nel cestino',
+  'Move to trash',
+  'Elimina',
+  'Delete',
+  'Sposta nel cestino del dispositivo'
+] as const
+
 export const DELETE_CONFIRM_LABELS = [
   'Sposta nel cestino',
   'Move to trash',
   'Elimina',
   'Delete',
-  'Conferma'
+  'Conferma',
+  'OK',
+  'Ok'
 ] as const
+
+export const DELETE_CANCEL_LABELS = ['Annulla', 'Cancel', 'No'] as const
 
 export const LOGIN_BLOCK_TEXTS = [
   'Questo browser o app potrebbe non essere sicuro',
@@ -122,12 +134,22 @@ export function findClearSelectionButton(doc: Document = document): HTMLElement 
   return doc.querySelector<HTMLElement>(`[aria-label="${SELECTORS.clearSelectionLabel}"]`)
 }
 
+function isVisibleInteractive(el: HTMLElement): boolean {
+  const rect = el.getBoundingClientRect()
+  if (rect.width <= 0 || rect.height <= 0) return false
+  const style = el.ownerDocument.defaultView?.getComputedStyle(el)
+  if (!style || style.visibility === 'hidden' || style.display === 'none') return false
+  if (el.getAttribute('aria-disabled') === 'true' || el.hasAttribute('disabled')) return false
+  return true
+}
+
 function findButtonByLabels(labels: readonly string[], doc: Document = document): HTMLElement | null {
+  const matches: HTMLElement[] = []
   for (const label of labels) {
     const btn = doc.querySelector<HTMLElement>(`button[aria-label="${label}"]`)
-    if (btn) return btn
+    if (btn) matches.push(btn)
   }
-  return null
+  return matches.find(isVisibleInteractive) ?? matches[0] ?? null
 }
 
 export function findMoreOptionsButton(doc: Document = document): HTMLElement | null {
@@ -150,17 +172,44 @@ export function findDeleteButton(doc: Document = document): HTMLElement | null {
   return findButtonByLabels(DELETE_TOOLBAR_LABELS, doc)
 }
 
+export function findDeleteMenuItem(doc: Document = document): HTMLElement | null {
+  const matches: HTMLElement[] = []
+  for (const label of DELETE_SUBMENU_LABELS) {
+    const byRole = doc.querySelector<HTMLElement>(`[role="menuitem"][aria-label="${label}"]`)
+    if (byRole) matches.push(byRole)
+    const byOption = doc.querySelector<HTMLElement>(`[role="option"][aria-label="${label}"]`)
+    if (byOption) matches.push(byOption)
+    const byText = [...doc.querySelectorAll<HTMLElement>('[role="menuitem"], [role="option"]')].find(
+      (el) => {
+        const text = el.textContent?.trim() ?? ''
+        return text === label || text.startsWith(`${label} `)
+      }
+    )
+    if (byText) matches.push(byText)
+  }
+  return matches.find(isVisibleInteractive) ?? matches[0] ?? null
+}
+
 export function findDeleteConfirmButton(doc: Document = document): HTMLElement | null {
-  const dialog =
-    doc.querySelector<HTMLElement>('[role="dialog"], [role="alertdialog"]') ?? doc.body
+  const dialog = doc.querySelector<HTMLElement>('[role="dialog"], [role="alertdialog"]')
+  if (!dialog) return null
+
+  const visibleButtons = [...dialog.querySelectorAll<HTMLElement>('button')].filter(isVisibleInteractive)
+
   for (const label of DELETE_CONFIRM_LABELS) {
-    const btn = dialog.querySelector<HTMLElement>(`button[aria-label="${label}"]`)
+    const btn = visibleButtons.find(
+      (el) => el.getAttribute('aria-label') === label || el.textContent?.trim() === label
+    )
     if (btn) return btn
   }
-  return [...dialog.querySelectorAll<HTMLElement>('button')].find((btn) => {
+
+  const affirmative = visibleButtons.find((btn) => {
     const text = btn.textContent?.trim() ?? ''
-    return DELETE_CONFIRM_LABELS.some((label) => text === label)
-  }) ?? null
+    const aria = btn.getAttribute('aria-label') ?? ''
+    return !DELETE_CANCEL_LABELS.some((label) => text === label || aria === label)
+  })
+
+  return affirmative ?? null
 }
 
 export function countCheckboxes(doc: Document = document): number {

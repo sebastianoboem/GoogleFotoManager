@@ -12,6 +12,7 @@ import {
   findClearSelectionButton,
   findDeleteButton,
   findDeleteConfirmButton,
+  findDeleteMenuItem,
   findDownloadMenuItem,
   findMainElement,
   findMoreOptionsButton,
@@ -106,8 +107,13 @@ export class SelectionEngine {
     const scrollEl = findScrollContainer()
     const mainEl = findMainElement()
 
-    if (!scrollEl || !mainEl) {
+    if (!mainEl) {
       this.fail('Selettori DOM non trovati', gatherDiagnostics(document, window.location.href))
+      return
+    }
+
+    if (!scrollEl) {
+      await this.runWithoutScrollContainer(mainEl)
       return
     }
 
@@ -118,6 +124,50 @@ export class SelectionEngine {
     } finally {
       this.stopProgressTicker()
     }
+  }
+
+  private async runWithoutScrollContainer(mainEl: HTMLElement): Promise<void> {
+    const existingSelection = this.getReportedSelectedCount()
+
+    if (this.postAction === 'delete' && existingSelection > 0) {
+      this.emitLog('info', `${existingSelection} foto già selezionate — avvio eliminazione`)
+      await this.completePostAction(existingSelection, 0)
+      return
+    }
+
+    this.emitLog('avviso', 'Contenitore scroll non rilevato — selezione limitata al viewport visibile')
+
+    for (let pass = 0; pass < this.params.passesPerStep; pass++) {
+      if (this.controlState === 'stopped') return
+      await this.waitIfPaused()
+      await this.selectVisible(mainEl)
+      if (pass + 1 < this.params.passesPerStep) await delay(this.params.settleDelay)
+    }
+
+    if (this.controlState === 'stopped') return
+
+    const leftovers = await this.verifyLeftovers(mainEl)
+    const total = this.getReportedSelectedCount()
+    if (total <= 0) {
+      this.fail('Nessuna foto selezionabile nel viewport', gatherDiagnostics(document, window.location.href))
+      return
+    }
+
+    await this.completePostAction(total, leftovers)
+  }
+
+  private async completePostAction(total: number, leftovers: number): Promise<void> {
+    if (this.postAction === 'download' && total > 0) {
+      await this.triggerDownload()
+    } else if (this.postAction === 'delete' && total > 0) {
+      await this.triggerDelete()
+    }
+
+    this.postAction = 'none'
+    this.state = 'done'
+    this.controlState = 'stopped'
+    this.emitProgress()
+    this.callbacks.onDone?.({ total, leftovers })
   }
 
   pause(): void {
@@ -319,20 +369,9 @@ export class SelectionEngine {
     if (this.controlState === 'stopped') return
 
     const leftovers = await this.verifyLeftovers(mainEl)
-    this.state = 'done'
-    this.controlState = 'stopped'
-    this.emitProgress()
     const total = this.getReportedSelectedCount()
     this.emitLog('info', `Completato: ${total} foto selezionate (Google Foto)`)
-
-    if (this.postAction === 'download' && total > 0) {
-      await this.triggerDownload()
-    } else if (this.postAction === 'delete' && total > 0) {
-      await this.triggerDelete()
-    }
-
-    this.postAction = 'none'
-    this.callbacks.onDone?.({ total, leftovers })
+    await this.completePostAction(total, leftovers)
   }
 
   private async triggerDownload(): Promise<void> {
@@ -376,13 +415,38 @@ export class SelectionEngine {
       return
     }
     deleteBtn.click()
-    await delay(500)
-    const confirmBtn = findDeleteConfirmButton()
-    if (confirmBtn) {
-      confirmBtn.click()
+
+    let steps = 0
+    for (let attempt = 0; attempt < 25; attempt++) {
+      await delay(200)
+      const dialogCount = document.querySelectorAll('[role="dialog"], [role="alertdialog"]').length
+
+      const menuItem = findDeleteMenuItem()
+      if (menuItem) {
+        menuItem.click()
+        steps++
+        continue
+      }
+
+      const confirmBtn = findDeleteConfirmButton()
+      if (confirmBtn) {
+        confirmBtn.click()
+        steps++
+        continue
+      }
+
+      if (steps > 0 && dialogCount === 0) {
+        this.emitLog('info', 'Eliminazione confermata')
+        return
+      }
+    }
+
+    const remainingDialogs = document.querySelectorAll('[role="dialog"], [role="alertdialog"]').length
+    if (steps > 0 && remainingDialogs === 0) {
       this.emitLog('info', 'Eliminazione confermata')
       return
     }
+
     this.emitLog('avviso', 'Finestra di conferma non trovata — verifica manualmente in Google Foto')
   }
 

@@ -127,4 +127,57 @@ describe('SelectionEngine', () => {
     expect(errors.length).toBe(1)
     expect(engine.getState()).toBe('error')
   })
+
+  it('deletes without scroll container when photos are already selected', async () => {
+    const mainEl = document.createElement('div')
+    mainEl.setAttribute('role', 'main')
+    document.body.appendChild(mainEl)
+
+    const toolbar = document.createElement('div')
+    toolbar.setAttribute('role', 'toolbar')
+    toolbar.textContent = '2 elementi selezionati'
+    document.body.appendChild(toolbar)
+
+    let deleteClicks = 0
+    const deleteBtn = document.createElement('button')
+    deleteBtn.setAttribute('aria-label', 'Elimina')
+    deleteBtn.addEventListener('click', () => {
+      deleteClicks++
+      const menu = document.createElement('div')
+      menu.setAttribute('role', 'menu')
+      const item = document.createElement('div')
+      item.setAttribute('role', 'menuitem')
+      item.setAttribute('aria-label', 'Sposta nel cestino')
+      item.addEventListener('click', () => {
+        const dialog = document.createElement('div')
+        dialog.setAttribute('role', 'dialog')
+        const confirm = document.createElement('button')
+        confirm.textContent = 'Sposta nel cestino'
+        confirm.addEventListener('click', () => dialog.remove())
+        dialog.appendChild(confirm)
+        document.body.appendChild(dialog)
+      })
+      menu.appendChild(item)
+      document.body.appendChild(menu)
+    })
+    document.body.appendChild(deleteBtn)
+
+    const doneEvents: { total: number }[] = []
+    engine.setCallbacks({ onDone: (e) => doneEvents.push(e) })
+
+    const deletePromise = engine.startAndDelete({
+      clickDelay: 0,
+      settleDelay: 0,
+      scrollFraction: 80,
+      passesPerStep: 1,
+      stallPasses: 1
+    })
+
+    await vi.runAllTimersAsync()
+    await deletePromise
+
+    expect(deleteClicks).toBe(1)
+    expect(doneEvents[0]?.total).toBe(2)
+    expect(engine.getState()).toBe('done')
+  })
 })
