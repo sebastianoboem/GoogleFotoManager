@@ -31,6 +31,7 @@ import {
   updateDevModeMenuItem
 } from './menu'
 import { runStartupUpdateCheck } from './auto-updater'
+import { setPrepareAppQuit } from './app-quit'
 
 const PANEL_WIDTH = 320
 const PHOTOS_URL = 'https://photos.google.com/'
@@ -257,6 +258,19 @@ function createMainWindow(): void {
 
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled')
 applyCleanUserAgent(app)
+
+setPrepareAppQuit(() => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.destroy()
+  }
+  for (const win of BaseWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.destroy()
+  }
+  baseWindow = null
+  photosView = null
+  panelView = null
+  logWindow = null
+})
 
 app.whenReady().then(async () => {
   await runStartupUpdateCheck()

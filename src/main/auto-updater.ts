@@ -1,5 +1,6 @@
-import { app, BrowserWindow, dialog } from 'electron'
+import { app, BaseWindow, BrowserWindow, dialog } from 'electron'
 import { autoUpdater } from 'electron-updater'
+import { prepareAppQuit } from './app-quit'
 
 const UPDATE_HTML = `<!DOCTYPE html>
 <html lang="it">
@@ -141,14 +142,17 @@ async function promptRestartToInstall(version: string): Promise<never> {
     type: 'info',
     title: 'Aggiornamento pronto',
     message: `La versione ${version} è pronta.`,
-    detail: 'L\'app verrà riavviata per applicare l\'aggiornamento.',
+    detail: 'L\'app verrà chiusa e riavviata per applicare l\'aggiornamento.',
     buttons: ['Riavvia ora'],
     defaultId: 0,
     cancelId: 0,
     noLink: true
   })
 
-  autoUpdater.quitAndInstall(false, true)
+  prepareAppQuit()
+  closeUpdateWindow()
+  app.removeAllListeners('activate')
+  autoUpdater.quitAndInstall(true, true)
   return new Promise(() => {})
 }
 

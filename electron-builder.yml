@@ -34,3 +34,5 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  guid: 2f8e4a1b-9c3d-4e5f-a6b7-cd8e9f0a1b2c
+  include: build/installer.nsh
