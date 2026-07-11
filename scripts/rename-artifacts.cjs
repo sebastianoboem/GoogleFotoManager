@@ -1,4 +1,5 @@
 const fs = require('node:fs')
+const path = require('node:path')
 
 const MAC_RENAMES = new Map([
   ['-arm64.dmg', '-arm64-AppleSilicon.dmg'],
@@ -6,6 +7,24 @@ const MAC_RENAMES = new Map([
   ['-arm64.dmg.blockmap', '-arm64-AppleSilicon.dmg.blockmap'],
   ['-x64.dmg.blockmap', '-x64-Intel.dmg.blockmap']
 ])
+
+function copyHyphenatedWindowsArtifacts(filePath, updated) {
+  if (!filePath.endsWith('.exe') || filePath.includes('.__uninstaller.')) return
+
+  const hyphenName = path.basename(filePath).replace(/ /g, '-')
+  const dest = path.join(path.dirname(filePath), hyphenName)
+  if (fs.existsSync(dest)) return
+
+  fs.copyFileSync(filePath, dest)
+  updated.push(dest)
+
+  const blockmap = `${filePath}.blockmap`
+  if (fs.existsSync(blockmap)) {
+    const hyphenBlockmap = `${dest}.blockmap`
+    fs.copyFileSync(blockmap, hyphenBlockmap)
+    updated.push(hyphenBlockmap)
+  }
+}
 
 /** @param {import('app-builder-lib').BuildResult} buildResult */
 module.exports = async function renameArtifacts(buildResult) {
@@ -30,6 +49,7 @@ module.exports = async function renameArtifacts(buildResult) {
       continue
     }
 
+    copyHyphenatedWindowsArtifacts(current, updated)
     updated.push(current)
   }
 
