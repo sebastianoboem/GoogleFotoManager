@@ -1,4 +1,11 @@
-export type EngineState = 'idle' | 'running' | 'paused' | 'stopped' | 'done' | 'error'
+export type EngineState =
+  | 'idle'
+  | 'running'
+  | 'paused'
+  | 'stopped'
+  | 'downloading'
+  | 'done'
+  | 'error'
 
 export interface SelectionParams {
   clickDelay: number

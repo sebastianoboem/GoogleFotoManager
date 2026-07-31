@@ -128,6 +128,45 @@ describe('SelectionEngine', () => {
     expect(engine.getState()).toBe('error')
   })
 
+  it('emits downloading then done when downloadAfterSelection is enabled', async () => {
+    createGooglePhotosGrid(document, { photoCount: 4, virtualize: false })
+    const states: string[] = []
+    let resolveDownload: ((value: { ok: boolean; method?: string }) => void) | null = null
+
+    engine.setCallbacks({
+      onProgress: (e) => states.push(e.state),
+      onTriggerDownload: () =>
+        new Promise((resolve) => {
+          resolveDownload = resolve
+        })
+    })
+
+    const startPromise = engine.start({
+      clickDelay: 0,
+      settleDelay: 5,
+      scrollFraction: 100,
+      passesPerStep: 1,
+      stallPasses: 2,
+      downloadAfterSelection: true
+    })
+
+    await vi.runAllTimersAsync()
+    expect(states).toContain('downloading')
+    expect(engine.getState()).toBe('downloading')
+    expect(resolveDownload).not.toBeNull()
+
+    resolveDownload!({ ok: true, method: 'menu' })
+    await vi.runAllTimersAsync()
+    await startPromise
+
+    expect(states[states.length - 1]).toBe('done')
+    expect(engine.getState()).toBe('done')
+    const downloadingIdx = states.indexOf('downloading')
+    const doneIdx = states.lastIndexOf('done')
+    expect(downloadingIdx).toBeGreaterThanOrEqual(0)
+    expect(doneIdx).toBeGreaterThan(downloadingIdx)
+  })
+
   it('deletes without scroll container when photos are already selected', async () => {
     const mainEl = document.createElement('div')
     mainEl.setAttribute('role', 'main')

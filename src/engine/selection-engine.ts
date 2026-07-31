@@ -376,19 +376,26 @@ export class SelectionEngine {
 
   private async triggerDownload(): Promise<void> {
     this.emitLog('azione', 'Avvio download…')
+    this.stopProgressTicker()
+    this.state = 'downloading'
+    this.estPct = 0
+    this.emitProgress()
 
     if (this.callbacks.onTriggerDownload) {
       const result = await this.callbacks.onTriggerDownload()
       if (result.ok) {
+        this.estPct = 100
         this.emitLog(
           'info',
           result.method === 'menu'
-            ? 'Download avviato dal menu'
-            : 'Download avviato (Maiusc+D)'
+            ? 'Download completato (menu)'
+            : result.method === 'shortcut'
+              ? 'Download completato (Maiusc+D)'
+              : 'Download completato'
         )
         return
       }
-      this.emitLog('errore', `Download non avviato (${result.step ?? 'sconosciuto'})`)
+      this.emitLog('errore', `Download non riuscito (${result.step ?? 'sconosciuto'})`)
       return
     }
 

@@ -8,6 +8,7 @@ import type {
 } from '../shared/types'
 import { runChromeLoginBridge } from './chrome-login-bridge'
 import { triggerPhotosDownload } from './download-trigger'
+import { waitForSessionDownload } from './download-monitor'
 import {
   deleteProfileStorage,
   exportWebStorage,
@@ -44,6 +45,12 @@ type WindowRefs = {
 let refs: WindowRefs | null = null
 const LOG_BUFFER_MAX = 500
 const logBuffer: LogEvent[] = []
+let lastProgress: ProgressEvent = {
+  selected: 0,
+  estPct: 0,
+  elapsedMs: 0,
+  state: 'idle'
+}
 
 export function updatePhotosViewRef(photosView: WebContents, photosSession: Session): void {
   if (!refs) return
@@ -302,6 +309,7 @@ export function registerIpcHandlers(windowRefs: WindowRefs): void {
   ipcMain.handle(IPC.LOG_GET_HISTORY, () => [...logBuffer])
 
   ipcMain.on(IPC.PHOTOS_PROGRESS, (_e, payload: ProgressEvent) => {
+    lastProgress = payload
     refs?.panelView?.send(IPC.PANEL_PROGRESS, payload)
   })
 
@@ -322,7 +330,47 @@ export function registerIpcHandlers(windowRefs: WindowRefs): void {
   })
 
   ipcMain.handle(IPC.PHOTOS_TRIGGER_DOWNLOAD, async () => {
-    if (!refs?.photosView) return { ok: false, step: 'no-webcontents' }
-    return triggerPhotosDownload(refs.photosView)
+    if (!refs?.photosView || !refs.photosSession) {
+      return { ok: false, step: 'no-webcontents' }
+    }
+
+    const selected = lastProgress.selected
+    const elapsedMs = lastProgress.elapsedMs
+
+    const downloadWait = waitForSessionDownload(refs.photosSession, {
+      onProgress: (info) => {
+        refs?.panelView?.send(IPC.PANEL_PROGRESS, {
+          selected,
+          estPct: info.percent,
+          elapsedMs,
+          state: 'downloading'
+        } satisfies ProgressEvent)
+      }
+    })
+
+    const triggerResult = await triggerPhotosDownload(refs.photosView)
+    if (!triggerResult.ok) {
+      downloadWait.cancel({ ok: false, step: triggerResult.step ?? 'trigger-failed' })
+      await downloadWait.promise
+      return triggerResult
+    }
+
+    const waitResult = await downloadWait.promise
+    if (!waitResult.ok) {
+      return {
+        ok: false,
+        method: triggerResult.method,
+        step: waitResult.step ?? 'download-failed'
+      }
+    }
+
+    refs?.panelView?.send(IPC.PANEL_PROGRESS, {
+      selected,
+      estPct: 100,
+      elapsedMs,
+      state: 'downloading'
+    } satisfies ProgressEvent)
+
+    return { ok: true, method: triggerResult.method }
   })
 }

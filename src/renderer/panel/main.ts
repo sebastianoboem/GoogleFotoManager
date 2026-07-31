@@ -90,6 +90,7 @@ const STATE_LABELS: Record<EngineState, string> = {
   running: 'In corso',
   paused: 'In pausa',
   stopped: 'Interrotto',
+  downloading: 'In download...',
   done: 'Completato',
   error: 'Errore'
 }
@@ -214,6 +215,10 @@ function updateProgress(p: ProgressEvent): void {
   statusProgress.value = pct
   statusPctLabel.textContent = `${Math.round(pct)}%`
   statusTime.textContent = formatTime(p.elapsedMs)
+  statusProgress.setAttribute(
+    'aria-label',
+    p.state === 'downloading' ? 'Avanzamento download' : 'Avanzamento selezione'
+  )
 
   const running = p.state === 'running'
   const paused = p.state === 'paused'

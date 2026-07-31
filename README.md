@@ -37,45 +37,36 @@ npm test
 
 23 test (motore di selezione, selettori, sessioni, zoom, ecc.).
 
-## Aggiornamenti automatici
+## Build e release
 
-All'avvio, l'app compilata controlla le [GitHub Releases](https://github.com/sebastianoboem/GoogleFotoManager/releases). Se esiste una versione più recente, la scarica e chiede il riavvio per installarla **prima** di aprire la finestra principale. In sviluppo (`npm run dev`) il controllo è disattivato.
+Ogni release contiene **solo 3 installer** scaricabili dall’utente (Windows, macOS Intel, macOS Apple Silicon).
 
-Per pubblicare una release compatibile con l'auto-update, oltre a installer e `.dmg` servono anche i file generati da electron-builder in `release/`:
-
-- `latest-mac.yml` + `.zip` (macOS, uno per architettura)
-- `latest.yml` + `.exe.blockmap` (Windows)
-
-Esempio di build e upload:
+Release completa (cancella `release/`, ricompila, lascia solo i 3 installer):
 
 ```bash
-npm run build && npx electron-builder --mac --win --publish always
+npm run build:release
 ```
 
-(Richiede un token GitHub con permesso `repo`.)
-
-## Build
+Build singola piattaforma (sviluppo):
 
 ```bash
-npm run build          # compila con electron-vite
 npm run build:mac      # .dmg arm64 + x64
 npm run build:win      # installer NSIS
 ```
 
-Per entrambe le piattaforme in un colpo solo:
-
-```bash
-npm run build && npx electron-builder --mac --win
-```
-
-Gli artefatti finiscono in `release/`:
-
+In `release/` restano solo i 3 file da pubblicare:
 
 | Piattaforma         | File                                               |
 | ------------------- | -------------------------------------------------- |
-| macOS Apple Silicon | `Google Foto Manager-1.0.0-arm64-AppleSilicon.dmg` (+ `.zip` per auto-update) |
-| macOS Intel         | `Google Foto Manager-1.0.0-x64-Intel.dmg` (+ `.zip` per auto-update)          |
-| Windows             | `Google Foto Manager-1.0.0.exe`                    |
+| macOS Apple Silicon | `Google.Foto.Manager-{version}-arm64-AppleSilicon.dmg` |
+| macOS Intel         | `Google.Foto.Manager-{version}-x64-Intel.dmg`          |
+| Windows             | `Google.Foto.Manager-{version}.exe`                    |
+
+Pubblicazione su GitHub:
+
+```bash
+node scripts/publish-github-release.cjs 1.1.4 /path/to/release-notes.md
+```
 
 
 
