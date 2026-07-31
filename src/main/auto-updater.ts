@@ -13,7 +13,7 @@ function debugLog(
 ): void {
   const payload = {
     sessionId: '062c55',
-    runId: 'post-fix',
+    runId: 'post-fix-nsis',
     hypothesisId,
     location,
     message,

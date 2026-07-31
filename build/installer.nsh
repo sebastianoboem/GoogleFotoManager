@@ -1,3 +1,9 @@
+; Builds from macOS produce NSIS uninstallers whose CRC often fails
+; (electron-builder#4875). Disable CRC so uninstall/update can run.
+!macro customHeader
+  CRCCheck off
+!macroend
+
 !macro killGoogleFotoManagerProcesses
   DetailPrint "Chiusura eventuali istanze di Google Foto Manager..."
   nsExec::ExecToLog 'taskkill /F /T /IM "Google Foto Manager.exe"'
@@ -22,7 +28,7 @@
   !insertmacro killGoogleFotoManagerProcesses
 !macroend
 
-!macro customUnInit
+!macro customUnInstall
   !insertmacro killGoogleFotoManagerProcesses
 !macroend
 
