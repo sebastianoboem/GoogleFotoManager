@@ -1,6 +1,47 @@
+import { appendFileSync, mkdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { app, BaseWindow, BrowserWindow, dialog } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { prepareAppQuit } from './app-quit'
+
+// #region agent log
+function debugLog(
+  hypothesisId: string,
+  location: string,
+  message: string,
+  data: Record<string, unknown> = {}
+): void {
+  const payload = {
+    sessionId: '062c55',
+    runId: 'post-fix',
+    hypothesisId,
+    location,
+    message,
+    data: {
+      ...data,
+      appVersion: app.getVersion(),
+      isPackaged: app.isPackaged,
+      platform: process.platform
+    },
+    timestamp: Date.now()
+  }
+  fetch('http://127.0.0.1:7245/ingest/1e904050-9bc3-4292-9bdd-b69484a3c5f3', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Debug-Session-Id': '062c55'
+    },
+    body: JSON.stringify(payload)
+  }).catch(() => {})
+  try {
+    const dir = app.getPath('userData')
+    mkdirSync(dir, { recursive: true })
+    appendFileSync(join(dir, 'debug-update-062c55.log'), `${JSON.stringify(payload)}\n`)
+  } catch {
+    /* ignore */
+  }
+}
+// #endregion
 
 const UPDATE_HTML = `<!DOCTYPE html>
 <html lang="it">
@@ -162,10 +203,21 @@ export async function runStartupUpdateCheck(): Promise<void> {
   configureAutoUpdater()
   autoUpdater.removeAllListeners()
 
+  // #region agent log
+  debugLog('A', 'auto-updater.ts:runStartupUpdateCheck', 'update-check-start', {
+    feedURL: (autoUpdater as { getFeedURL?: () => string }).getFeedURL?.() ?? null
+  })
+  // #endregion
+
   try {
     await createUpdateWindow()
   } catch (error) {
     console.warn('[auto-updater]', error)
+    // #region agent log
+    debugLog('E', 'auto-updater.ts:createUpdateWindow', 'update-window-failed', {
+      error: error instanceof Error ? error.message : String(error)
+    })
+    // #endregion
     return
   }
 
@@ -179,13 +231,21 @@ export async function runStartupUpdateCheck(): Promise<void> {
     }
 
     autoUpdater.on('checking-for-update', () => {
+      // #region agent log
+      debugLog('A', 'auto-updater.ts:checking-for-update', 'checking-for-update', {})
+      // #endregion
       setUpdateUi({
         title: 'Controllo aggiornamenti…',
         message: 'Verifica delle release su GitHub in corso.'
       })
     })
 
-    autoUpdater.on('update-not-available', () => {
+    autoUpdater.on('update-not-available', (info) => {
+      // #region agent log
+      debugLog('C', 'auto-updater.ts:update-not-available', 'update-not-available', {
+        version: info?.version ?? null
+      })
+      // #endregion
       finish()
     })
 
@@ -198,10 +258,21 @@ export async function runStartupUpdateCheck(): Promise<void> {
     })
 
     autoUpdater.on('update-downloaded', (info) => {
+      // #region agent log
+      debugLog('A', 'auto-updater.ts:update-downloaded', 'update-downloaded', {
+        version: info.version
+      })
+      // #endregion
       void promptRestartToInstall(info.version)
     })
 
     autoUpdater.on('update-available', (info) => {
+      // #region agent log
+      debugLog('A', 'auto-updater.ts:update-available', 'update-available', {
+        version: info.version,
+        path: (info as { path?: string }).path ?? null
+      })
+      // #endregion
       setUpdateUi({
         title: 'Aggiornamento disponibile',
         message: `Versione ${info.version} trovata. Download in corso…`
@@ -210,12 +281,31 @@ export async function runStartupUpdateCheck(): Promise<void> {
 
     autoUpdater.on('error', (error) => {
       console.warn('[auto-updater]', error.message)
-      finish()
+      // #region agent log
+      debugLog('A', 'auto-updater.ts:error', 'update-error', {
+        error: error.message,
+        stack: error.stack?.slice(0, 500) ?? null
+      })
+      // #endregion
+      setUpdateUi({
+        title: 'Aggiornamento non riuscito',
+        message: error.message
+      })
+      setTimeout(finish, 4000)
     })
 
     void autoUpdater.checkForUpdates().catch((error: Error) => {
       console.warn('[auto-updater]', error.message)
-      finish()
+      // #region agent log
+      debugLog('A', 'auto-updater.ts:checkForUpdates', 'checkForUpdates-rejected', {
+        error: error.message
+      })
+      // #endregion
+      setUpdateUi({
+        title: 'Aggiornamento non riuscito',
+        message: error.message
+      })
+      setTimeout(finish, 4000)
     })
   })
 }

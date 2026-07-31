@@ -22,7 +22,6 @@ win:
     - target: nsis
       arch:
         - x64
-        - arm64
   artifactName: ${productName}-${version}.${ext}
 nsis:
   differentialPackage: false
