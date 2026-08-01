@@ -1,6 +1,6 @@
 {
   "name": "google-foto-manager",
-  "version": "1.2.2",
+  "version": "1.2.4",
   "description": "App desktop per selezionare automaticamente tutte le foto in Google Foto",
   "main": "./out/main/index.js",
   "author": "sebastianoboem",
@@ -24,6 +24,8 @@
     "build:win:x64": "npm run build && npm run clean:release && electron-builder --win --x64 && node scripts/finalize-release.cjs",
     "finalize:release": "node scripts/finalize-release.cjs",
     "release:github": "node scripts/publish-github-release.cjs",
+    "release:sourceforge": "node scripts/publish-sourceforge-release.cjs",
+    "release:publish": "node scripts/publish-release.cjs",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {

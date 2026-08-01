@@ -6,6 +6,10 @@ directories:
 files:
   - out/**/*
   - package.json
+# Primary update feed (baked into app-update.yml). Runtime may fall back to GitHub.
+publish:
+  provider: generic
+  url: https://downloads.sourceforge.net/project/googlefotomanager/releases/
 afterAllArtifactBuild: scripts/rename-artifacts.cjs
 mac:
   category: public.app-category.photography

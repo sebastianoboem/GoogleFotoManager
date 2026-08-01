@@ -9,6 +9,7 @@ vi.mock('electron', () => ({
 vi.mock('electron-updater', () => ({
   autoUpdater: {
     on: vi.fn(),
+    setFeedURL: vi.fn(),
     checkForUpdates: vi.fn().mockResolvedValue(null),
     quitAndInstall: vi.fn()
   }
@@ -22,5 +23,13 @@ describe('auto-updater', () => {
 
     expect(shouldRunStartupUpdateCheck()).toBe(false)
     await expect(runStartupUpdateCheck()).resolves.toBeUndefined()
+  })
+
+  it('falls back to GitHub only after a SourceForge failure', async () => {
+    const { shouldFallbackToGitHub } = await import('../../src/main/auto-updater')
+
+    expect(shouldFallbackToGitHub('sourceforge', false)).toBe(true)
+    expect(shouldFallbackToGitHub('sourceforge', true)).toBe(false)
+    expect(shouldFallbackToGitHub('github', false)).toBe(false)
   })
 })

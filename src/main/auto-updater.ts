@@ -1,47 +1,7 @@
-import { appendFileSync, mkdirSync } from 'node:fs'
-import { join } from 'node:path'
-import { app, BaseWindow, BrowserWindow, dialog } from 'electron'
+import { app, BrowserWindow, dialog } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { prepareAppQuit } from './app-quit'
-
-// #region agent log
-function debugLog(
-  hypothesisId: string,
-  location: string,
-  message: string,
-  data: Record<string, unknown> = {}
-): void {
-  const payload = {
-    sessionId: '062c55',
-    runId: 'post-fix-nsis',
-    hypothesisId,
-    location,
-    message,
-    data: {
-      ...data,
-      appVersion: app.getVersion(),
-      isPackaged: app.isPackaged,
-      platform: process.platform
-    },
-    timestamp: Date.now()
-  }
-  fetch('http://127.0.0.1:7245/ingest/1e904050-9bc3-4292-9bdd-b69484a3c5f3', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Debug-Session-Id': '062c55'
-    },
-    body: JSON.stringify(payload)
-  }).catch(() => {})
-  try {
-    const dir = app.getPath('userData')
-    mkdirSync(dir, { recursive: true })
-    appendFileSync(join(dir, 'debug-update-062c55.log'), `${JSON.stringify(payload)}\n`)
-  } catch {
-    /* ignore */
-  }
-}
-// #endregion
+import { GITHUB_UPDATE_FEED, sourceforgeFeed } from '../shared/update-feeds'
 
 const UPDATE_HTML = `<!DOCTYPE html>
 <html lang="it">
@@ -80,7 +40,7 @@ const UPDATE_HTML = `<!DOCTYPE html>
 <body>
   <div class="card">
     <h1 id="title">Controllo aggiornamenti…</h1>
-    <p id="message">Connessione a GitHub in corso.</p>
+    <p id="message">Connessione in corso.</p>
     <progress id="bar" max="100" value="0" hidden></progress>
     <div id="pct" class="pct" hidden></div>
   </div>
@@ -104,6 +64,16 @@ const UPDATE_HTML = `<!DOCTYPE html>
 </html>`
 
 let updateWindow: BrowserWindow | null = null
+
+export type UpdateFeedKind = 'sourceforge' | 'github'
+
+/** Exported for tests: whether an updater error should try the GitHub fallback. */
+export function shouldFallbackToGitHub(
+  currentFeed: UpdateFeedKind,
+  alreadyTriedGithub: boolean
+): boolean {
+  return currentFeed === 'sourceforge' && !alreadyTriedGithub
+}
 
 export function shouldRunStartupUpdateCheck(): boolean {
   return app.isPackaged
@@ -173,6 +143,14 @@ function configureAutoUpdater(): void {
   autoUpdater.allowDowngrade = false
 }
 
+function applyFeed(feed: UpdateFeedKind): void {
+  if (feed === 'sourceforge') {
+    autoUpdater.setFeedURL(sourceforgeFeed())
+  } else {
+    autoUpdater.setFeedURL(GITHUB_UPDATE_FEED)
+  }
+}
+
 async function promptRestartToInstall(version: string): Promise<never> {
   setUpdateUi({
     title: 'Aggiornamento pronto',
@@ -203,26 +181,18 @@ export async function runStartupUpdateCheck(): Promise<void> {
   configureAutoUpdater()
   autoUpdater.removeAllListeners()
 
-  // #region agent log
-  debugLog('A', 'auto-updater.ts:runStartupUpdateCheck', 'update-check-start', {
-    feedURL: (autoUpdater as { getFeedURL?: () => string }).getFeedURL?.() ?? null
-  })
-  // #endregion
-
   try {
     await createUpdateWindow()
   } catch (error) {
     console.warn('[auto-updater]', error)
-    // #region agent log
-    debugLog('E', 'auto-updater.ts:createUpdateWindow', 'update-window-failed', {
-      error: error instanceof Error ? error.message : String(error)
-    })
-    // #endregion
     return
   }
 
   return new Promise((resolve) => {
     let settled = false
+    let currentFeed: UpdateFeedKind = 'sourceforge'
+    let triedGithub = false
+
     const finish = (): void => {
       if (settled) return
       settled = true
@@ -230,22 +200,42 @@ export async function runStartupUpdateCheck(): Promise<void> {
       resolve()
     }
 
-    autoUpdater.on('checking-for-update', () => {
-      // #region agent log
-      debugLog('A', 'auto-updater.ts:checking-for-update', 'checking-for-update', {})
-      // #endregion
+    const startCheck = (feed: UpdateFeedKind): void => {
+      currentFeed = feed
+      applyFeed(feed)
       setUpdateUi({
         title: 'Controllo aggiornamenti…',
-        message: 'Verifica delle release su GitHub in corso.'
+        message:
+          feed === 'sourceforge'
+            ? 'Verifica aggiornamenti su SourceForge…'
+            : 'Verifica aggiornamenti su GitHub (fallback)…'
+      })
+      void autoUpdater.checkForUpdates().catch((error: Error) => {
+        handleUpdaterError(error)
+      })
+    }
+
+    const handleUpdaterError = (error: Error): void => {
+      console.warn('[auto-updater]', currentFeed, error.message)
+      if (shouldFallbackToGitHub(currentFeed, triedGithub)) {
+        triedGithub = true
+        startCheck('github')
+        return
+      }
+      finish()
+    }
+
+    autoUpdater.on('checking-for-update', () => {
+      setUpdateUi({
+        title: 'Controllo aggiornamenti…',
+        message:
+          currentFeed === 'sourceforge'
+            ? 'Verifica aggiornamenti su SourceForge…'
+            : 'Verifica aggiornamenti su GitHub (fallback)…'
       })
     })
 
-    autoUpdater.on('update-not-available', (info) => {
-      // #region agent log
-      debugLog('C', 'auto-updater.ts:update-not-available', 'update-not-available', {
-        version: info?.version ?? null
-      })
-      // #endregion
+    autoUpdater.on('update-not-available', () => {
       finish()
     })
 
@@ -258,21 +248,10 @@ export async function runStartupUpdateCheck(): Promise<void> {
     })
 
     autoUpdater.on('update-downloaded', (info) => {
-      // #region agent log
-      debugLog('A', 'auto-updater.ts:update-downloaded', 'update-downloaded', {
-        version: info.version
-      })
-      // #endregion
       void promptRestartToInstall(info.version)
     })
 
     autoUpdater.on('update-available', (info) => {
-      // #region agent log
-      debugLog('A', 'auto-updater.ts:update-available', 'update-available', {
-        version: info.version,
-        path: (info as { path?: string }).path ?? null
-      })
-      // #endregion
       setUpdateUi({
         title: 'Aggiornamento disponibile',
         message: `Versione ${info.version} trovata. Download in corso…`
@@ -280,32 +259,9 @@ export async function runStartupUpdateCheck(): Promise<void> {
     })
 
     autoUpdater.on('error', (error) => {
-      console.warn('[auto-updater]', error.message)
-      // #region agent log
-      debugLog('A', 'auto-updater.ts:error', 'update-error', {
-        error: error.message,
-        stack: error.stack?.slice(0, 500) ?? null
-      })
-      // #endregion
-      setUpdateUi({
-        title: 'Aggiornamento non riuscito',
-        message: error.message
-      })
-      setTimeout(finish, 4000)
+      handleUpdaterError(error)
     })
 
-    void autoUpdater.checkForUpdates().catch((error: Error) => {
-      console.warn('[auto-updater]', error.message)
-      // #region agent log
-      debugLog('A', 'auto-updater.ts:checkForUpdates', 'checkForUpdates-rejected', {
-        error: error.message
-      })
-      // #endregion
-      setUpdateUi({
-        title: 'Aggiornamento non riuscito',
-        message: error.message
-      })
-      setTimeout(finish, 4000)
-    })
+    startCheck('sourceforge')
   })
 }
